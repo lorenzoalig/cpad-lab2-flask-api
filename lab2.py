@@ -17,6 +17,36 @@ from flask import jsonify
 # Buscando os dados da API (escolhida uma de Naruto)
 base_url = "https://dattebayo-api.onrender.com"
 
+# Metodo para fazer busca paginada na API
+
+def busca_paginada(url, campo_alvo):
+    dados = []
+    pag = 1
+    limit = 100
+
+    while True:
+        final_url = url + "?page=" + str(pag) + "&limit=" + str(limit)
+
+        try:
+            resp = requests.get(final_url, timeout=10)
+            resp.raise_for_status()
+            data_array = resp.json().get(campo_alvo, [])
+            dados.extend(data_array)
+
+            if len(data_array) != 0:
+                pag += 1
+            else:
+                break
+
+        except requests.RequestException as erro:
+            # Trata falha na comunicação com a API externa
+            print(f"Erro ao coletar {campo_alvo}: {erro}")
+            raise SystemExit
+
+    return dados
+
+
+
 # Escolhido quatro collections para buscar na API:
 # --------------------------------------------- Personagens
 # URL
@@ -25,9 +55,7 @@ characters_url = base_url + "/characters"
 # Só realiza a coleta se o arquivo ainda não existir
 if not os.path.exists('naruto_characters.csv'):
     try:
-        character_resp = requests.get(characters_url, timeout=10)
-        character_resp.raise_for_status()
-        characters = character_resp.json()["characters"]
+        characters = busca_paginada(characters_url, "characters")
 
         # Abre arquivo e escreve os personagens
         with open('naruto_characters.csv', 'w', newline='', encoding='utf-8') as characters_csv:
@@ -52,9 +80,7 @@ villages_url = base_url + "/villages"
 # Só realiza a coleta se o arquivo ainda não existir
 if not os.path.exists('naruto_villages.csv'):
     try:
-        villages_resp = requests.get(villages_url, timeout=10)
-        villages_resp.raise_for_status()
-        villages = villages_resp.json()["villages"]
+        villages = busca_paginada(villages_url, "villages")
 
         # Abre arquivo e escreve as vilas
         with open('naruto_villages.csv', 'w', newline='', encoding='utf-8') as villages_csv:
@@ -77,9 +103,7 @@ clans_url = base_url + "/clans"
 # Só realiza a coleta se o arquivo ainda não existir
 if not os.path.exists('naruto_clans.csv'):
     try:
-        clans_resp = requests.get(clans_url, timeout=10)
-        clans_resp.raise_for_status()
-        clans = clans_resp.json()["clans"]
+        clans = busca_paginada(clans_url, "clans")
 
         # Abre arquivo e escreve os clans
         with open('naruto_clans.csv', 'w', newline='', encoding='utf-8') as clans_csv:
@@ -102,9 +126,7 @@ akatsuki_url = base_url + "/akatsuki"
 # Só realiza a coleta se o arquivo ainda não existir
 if not os.path.exists('naruto_akatsuki.csv'):
     try:
-        akatsuki_resp = requests.get(akatsuki_url, timeout=10)
-        akatsuki_resp.raise_for_status()
-        akatsuki = akatsuki_resp.json()["akatsuki"]
+        akatsuki = busca_paginada(akatsuki_url, "akatsuki")
 
         # Abre arquivo e escreve os membros da Akatsuki
         with open('naruto_akatsuki.csv', 'w', newline='', encoding='utf-8') as akatsuki_csv:
@@ -122,6 +144,7 @@ else:
 
 # ========================== API =============================
 
+# Etapa 2 criação fuções CRUD
 app = flask.Flask(__name__)
 
 # Funções auxiliares para alterar os arquivos CSV
@@ -488,6 +511,8 @@ def delete_akatsuki_member(id):
 
 
 # ========================== ENDPOINTS COM FILTRO =============================
+# Etapa 3 criação fuções filtro
+# ##
 
 # --------------------------------------------- Filtros de Personagens
 #  Filtra personagens pelo nome do clan
@@ -507,6 +532,10 @@ def get_personagens_por_clan():
         for personagem in reader:
             try:
                 personal = ast.literal_eval(personagem.get('personal', '{}'))
+
+                # Validação que garante que personal é um dicionário antes de usar .get()
+                if not isinstance(personal, dict):
+                    continue
 
                 clan = personal.get('clan', [])
 
@@ -561,4 +590,4 @@ def get_personagens_por_jutsu():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
